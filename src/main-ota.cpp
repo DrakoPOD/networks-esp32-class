@@ -2,6 +2,8 @@
 #include <ArduinoOTA.h>
 #include <WiFi.h>
 
+#include "blink.h"
+
 // put function declarations here:
 
 const char* ssid = "";
@@ -55,6 +57,9 @@ void setup() {
     });
 
     ArduinoOTA.begin();
+
+    blink(2, 1000, "BlinkTask1");
+    blink(4, 500, "BlinkTask2");
 }
 
 void loop() {
