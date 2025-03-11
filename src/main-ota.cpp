@@ -6,8 +6,8 @@
 
 // put function declarations here:
 
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "Electromedica";
+const char* password = "@ElecMed2025";
 
 void setup() {
     Serial.begin(115200);
@@ -58,8 +58,8 @@ void setup() {
 
     ArduinoOTA.begin();
 
-    blink(2, 1000, "BlinkTask1");
-    blink(4, 500, "BlinkTask2");
+    blink(6, 1000, "BlinkTask1");
+    blink(7, 500, "BlinkTask2");
 }
 
 void loop() {
