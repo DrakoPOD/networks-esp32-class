@@ -6,17 +6,22 @@
 
 // put function declarations here:
 
-const char* ssid = "Electromedica";
-const char* password = "@ElecMed2025";
+// const char* ssid = "Electromedica";
+// const char* password = "@ElecMed2025";
+const char* ssid = "EQUIPOS ELECTRÓNICOS ";
+const char* password = "Talleres202";
 
 void setup() {
     Serial.begin(115200);
 
     // Wifi connection
+    WiFi.disconnect(true);
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
         Serial.println("Connecting to WiFi..");
+        Serial.print("Estado de conexión: ");
+        Serial.println(WiFi.status());  // Imprime el código de estado
     }
     Serial.println("Connected to the WiFi network");
     Serial.print("IP Address: ");
@@ -58,11 +63,13 @@ void setup() {
 
     ArduinoOTA.begin();
 
-    blink(6, 1000, "BlinkTask1");
-    blink(7, 500, "BlinkTask2");
+    blink(6, 500, "BlinkTask1");
+    blink(7, 100, "BlinkTask2");
 }
 
 void loop() {
-    ArduinoOTA.handle();
-    // put your main code here, to run repeatedly:
+    if (WiFi.status() == WL_CONNECTED) {
+        ArduinoOTA.handle();
+    }
+    delay(50);
 }
