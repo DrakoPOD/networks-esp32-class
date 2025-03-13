@@ -16,6 +16,10 @@ CLIENT_CERT=$CERTS_DIR/client.crt
 CLIENT_KEY=$CERTS_DIR/client.key
 CLIENT_CSR=$CERTS_DIR/client.csr
 
+# Simple Certs files
+SERVER_KEY_PEM=$CERTS_DIR/server_key.pem
+SERVER_CERT_PEM=$CERTS_DIR/server_cert.pem
+
 # Locale data
 C=DO
 ST=Santiago
@@ -25,6 +29,9 @@ OU=Example
 
 # Days
 DAYS=365
+
+# Generate simple server key
+openssl req -x509 -newkey rsa:2048 -keyout $SERVER_KEY_PEM -out $SERVER_CERT_PEM -days 365 -nodes -subj "/C=$C/ST=$ST/L=$L/O=$O/OU=$OU"
 
 # Generate CA key
 openssl genpkey -algorithm RSA -out $CA_KEY -pkeyopt rsa_keygen_bits:2048
@@ -41,7 +48,7 @@ openssl req -new -key $CLIENT_KEY -out $CLIENT_CSR -subj "/C=$C/ST=$ST/L=$L/O=$O
 openssl x509 -req -days $DAYS -in $CLIENT_CSR -CA $CA_CERT -CAkey $CA_KEY -CAcreateserial -out $CLIENT_CERT -sha256
 
 # Remove csr files
-rm $SERVER_CSR $CLIENT_CSR
+rm $SERVER_CSR $CLIENT_CSR 
 
 # Convert to ESP32 format (PEM Without password)
 openssl rsa -in $CLIENT_KEY -out data/certs/client.pem
