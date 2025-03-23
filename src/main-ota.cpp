@@ -8,14 +8,14 @@
 
 // const char* ssid = "Electromedica";
 // const char* password = "@ElecMed2025";
-const char* ssid = "EQUIPOS ELECTRÓNICOS ";
-const char* password = "Talleres202";
+const char ssid[] = "EQUIPOS ELECTRÓNICOS ";
+const char password[] = "Talleres202";
 
 void setup() {
     Serial.begin(115200);
 
     // Wifi connection
-    WiFi.disconnect(true);
+    WiFi.disconnect();
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
