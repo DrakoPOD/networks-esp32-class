@@ -5,6 +5,7 @@ CERTS_DIR=certs
 
 # Create certs directory
 mkdir -p $CERTS_DIR
+mkdir -p data/certs
 
 # Certs files
 CA_CERT=$CERTS_DIR/ca.crt
