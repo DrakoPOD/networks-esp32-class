@@ -8,5 +8,5 @@ idf_component_register(
   # REQUIRES driver
   INCLUDE_DIRS "."
   # REQUIRES esp_driver_i2c
-  REQUIRES mqtt esp_wifi
+  PRIV_REQUIRES mqtt nvs_flash esp_netif
 )
