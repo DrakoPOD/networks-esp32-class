@@ -14,6 +14,8 @@
 #define WIFI_SSID "Biblioteca"
 #define WIFI_PASS "republicadigital"
 
+#define TOPIC "esp32/led"
+
 static const char *TAG_MQTT = "MQTT";
 static const char *TAG_WIFI = "WIFI";
 
@@ -41,7 +43,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG_MQTT, "Conectado al broker MQTT");
-            esp_mqtt_client_subscribe(client, "esp32/led", 0);
+            esp_mqtt_client_subscribe(client, TOPIC, 0);
             break;
 
         case MQTT_EVENT_DATA:
