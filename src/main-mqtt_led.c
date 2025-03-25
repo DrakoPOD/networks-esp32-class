@@ -10,9 +10,9 @@
 #include "nvs_flash.h"
 
 #define LED_PIN GPIO_NUM_2
-#define MQTT_BROKER_URI "mqtt://test.mosquitto.org"
-#define WIFI_SSID "Biblioteca"
-#define WIFI_PASS "republicadigital"
+#define MQTT_BROKER_URI "mqtt://rpiee.local:1883"
+#define WIFI_SSID "IoT_EE"
+#define WIFI_PASS "12345678"
 
 #define TOPIC "esp32/led"
 
