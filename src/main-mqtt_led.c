@@ -9,16 +9,82 @@
 #include "freertos/task.h"
 #include "mqtt_client.h"
 #include "nvs_flash.h"
+#include "led_strip.h"
 
 #define LED_PIN GPIO_NUM_2
 #define MQTT_BROKER_URI "mqtt://rpiee.local:1883"
 #define WIFI_SSID "IoT_EE"
 #define WIFI_PASS "12345678"
 
-#define TOPIC "esp32/led"
+#define TOPIC_R "esp32/led/R"
+#define TOPIC_G "esp32/led/G"
+#define TOPIC_B "esp32/led/B"
+
+#define LED_STRIP_USE_DMA  0
+
+#if LED_STRIP_USE_DMA
+// Numbers of the LED in the strip
+#define LED_STRIP_LED_COUNT 256
+#define LED_STRIP_MEMORY_BLOCK_WORDS 1024 // this determines the DMA block size
+#else
+// Numbers of the LED in the strip
+#define LED_STRIP_LED_COUNT 1
+#define LED_STRIP_MEMORY_BLOCK_WORDS 0 // let the driver choose a proper memory block size automatically
+#endif // LED_STRIP_USE_DMA
+
+// GPIO assignment
+#define LED_STRIP_GPIO_PIN  48
+
+// 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
+#define LED_STRIP_RMT_RES_HZ  (10 * 1000 * 1000)
 
 static const char *TAG_MQTT = "MQTT";
 static const char *TAG_WIFI = "WIFI";
+static const char *TAG_LED = "LED";
+
+led_strip_handle_t led_strip;
+led_strip_handle_t configure_led(void)
+{
+    // LED strip general initialization, according to your led board design
+    led_strip_config_t strip_config = {
+        .strip_gpio_num = LED_STRIP_GPIO_PIN, // The GPIO that connected to the LED strip's data line
+        .max_leds = LED_STRIP_LED_COUNT,      // The number of LEDs in the strip
+        .led_model = LED_MODEL_WS2812,        // LED strip model
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB, // The color order of the strip: GRB
+        .flags = {
+            .invert_out = false, // don't invert the output signal
+        }
+    };
+
+    // LED strip backend configuration: RMT
+    led_strip_rmt_config_t rmt_config = {
+        .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
+        .resolution_hz = LED_STRIP_RMT_RES_HZ, // RMT counter clock frequency
+        .mem_block_symbols = LED_STRIP_MEMORY_BLOCK_WORDS, // the memory block size used by the RMT channel
+        .flags = {
+            .with_dma = LED_STRIP_USE_DMA,     // Using DMA can improve performance when driving more LEDs
+        }
+    };
+
+    // LED Strip object handle
+    led_strip_handle_t led_strip;
+    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
+    ESP_LOGI(TAG_LED, "Created LED strip object with RMT backend");
+    return led_strip;
+}
+
+// Función para verificar si el mensaje es un número
+int is_number(const char *str) {
+    char *endptr;
+    strtol(str, &endptr, 10);  // Intenta convertir a entero
+
+    // Si no hay caracteres no numéricos, endptr debería apuntar al final de la cadena
+    return *endptr == '\0';
+}
+
+int clamp(int value, int min, int max) {
+    return (value < min) ? min : (value > max) ? max : value;
+}
 
 static void print_user_property(mqtt5_user_property_handle_t user_property) {
     if (user_property) {
@@ -37,6 +103,11 @@ static void print_user_property(mqtt5_user_property_handle_t user_property) {
     }
 }
 
+uint8_t r = 0;
+uint8_t g = 0;
+uint8_t b = 0;
+
+
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
@@ -44,7 +115,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG_MQTT, "Conectado al broker MQTT");
-            esp_mqtt_client_subscribe(client, TOPIC, 0);
+            esp_mqtt_client_subscribe(client, TOPIC_R, 1);
+            esp_mqtt_client_subscribe(client, TOPIC_G, 1);
+            esp_mqtt_client_subscribe(client, TOPIC_B, 1);
             break;
 
         case MQTT_EVENT_DATA:
@@ -54,14 +127,32 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             ESP_LOGI(TAG_MQTT, "Mensaje recibido en el topic: %.*s", event->topic_len, event->topic);
             print_user_property(event->property->user_property);
 
+            if (is_number(event->data)) {
+                uint8_t value = strtol(event->data,NULL,10);
+
+                value = clamp(value,0,255);
+
+                if (strncmp(event->topic, TOPIC_R, event->topic_len) == 0){
+                    r = value;
+                } else if(strncmp(event->topic, TOPIC_G, event->topic_len) == 0){
+                    g = value;
+                } else if(strncmp(event->topic, TOPIC_B, event->topic_len) == 0){
+                    b = value;
+                }
+
+                led_strip_set_pixel(led_strip, 0, r, g, b);
+                led_strip_refresh(led_strip);
+
+                ESP_LOGI(TAG_LED, "Led color have change");
+            };
             // Encender o apagar LED
-            if (strncmp(event->data, "ON", event->data_len) == 0) {
-                gpio_set_level(LED_PIN, 1);
-                ESP_LOGI(TAG_MQTT, "LED ENCENDIDO");
-            } else if (strncmp(event->data, "OFF", event->data_len) == 0) {
-                gpio_set_level(LED_PIN, 0);
-                ESP_LOGI(TAG_MQTT, "LED APAGADO");
-            }
+            // if (strncmp(event->data, "ON", event->data_len) == 0) {
+            //     gpio_set_level(LED_PIN, 1);
+            //     ESP_LOGI(TAG_MQTT, "LED ENCENDIDO");
+            // } else if (strncmp(event->data, "OFF", event->data_len) == 0) {
+            //     gpio_set_level(LED_PIN, 0);
+            //     ESP_LOGI(TAG_MQTT, "LED APAGADO");
+            // }
             break;
 
         default:
@@ -142,6 +233,8 @@ void wifi_init() {
 }
 
 void app_main() {
+    led_strip = configure_led();
+
     gpio_reset_pin(LED_PIN);
     gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(LED_PIN, 0);
