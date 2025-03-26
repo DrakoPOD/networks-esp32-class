@@ -206,6 +206,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         esp_timer_start_once(reconnect_timer, 5000000);  // 5 segundos
     }
 }
+///asdsad
 
 void wifi_init() {
     nvs_flash_init();
