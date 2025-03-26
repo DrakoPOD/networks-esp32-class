@@ -1,3 +1,16 @@
 {
-  "cSpell.words": ["bblanchon", "espota", "knolleary", "PIOENV", "rpiee"]
+  "cSpell.words": [
+    "bblanchon",
+    "espota",
+    "knolleary",
+    "netif",
+    "PIOENV",
+    "rpiee"
+  ],
+  "files.associations": {
+    "*._js": "javascript",
+    "*.vue": "vue",
+    "task.h": "c",
+    "esp_event.h": "c"
+  }
 }

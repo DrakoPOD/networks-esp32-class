@@ -3,6 +3,7 @@
 #include "driver/gpio.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -67,22 +68,58 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             break;
     }
 }
+static void reconnect_wifi(void *arg) {
+    ESP_LOGI(TAG_WIFI, "Intentando reconectar... %s", WIFI_SSID);
+    esp_wifi_connect();
+}
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ESP_LOGI(TAG_WIFI, "Conectado a Wi-Fi");
+        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+        ESP_LOGI(TAG_WIFI, "Conectado con IP: " IPSTR, IP2STR(&event->ip_info.ip));
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        ESP_LOGW(TAG_WIFI, "Desconectado, intentando reconectar...");
-        esp_wifi_connect();
+        wifi_event_sta_disconnected_t *event = (wifi_event_sta_disconnected_t *)event_data;
+        ESP_LOGW(TAG_WIFI, "Desconectado del Wi-Fi. Razón: %d", event->reason);
+        // Diagnóstico del error
+        switch (event->reason) {
+            case WIFI_REASON_AUTH_EXPIRE:
+                ESP_LOGE(TAG_WIFI, "Error: La autenticación expiró");
+                break;
+            case WIFI_REASON_AUTH_FAIL:
+                ESP_LOGE(TAG_WIFI, "Error: Fallo de autenticación (credenciales incorrectas)");
+                break;
+            case WIFI_REASON_NO_AP_FOUND:
+                ESP_LOGE(TAG_WIFI, "Error: No se encontró el punto de acceso (SSID incorrecto o fuera de rango)");
+                break;
+            case WIFI_REASON_HANDSHAKE_TIMEOUT:
+                ESP_LOGE(TAG_WIFI, "Error: Timeout en el handshake (posible problema de compatibilidad con el router)");
+                break;
+            case WIFI_REASON_BEACON_TIMEOUT:
+                ESP_LOGE(TAG_WIFI, "Error: No se reciben beacons del router (señal muy débil)");
+                break;
+            case WIFI_REASON_ASSOC_LEAVE:
+                ESP_LOGE(TAG_WIFI, "Error: Desconectado manualmente por otro dispositivo");
+                break;
+            default:
+                ESP_LOGW(TAG_WIFI, "Error desconocido: %d", event->reason);
+                break;
+        }
+
+        // Intentar reconectar
+        esp_timer_handle_t reconnect_timer;
+        esp_timer_create_args_t timer_args = {.callback = &reconnect_wifi, .arg = NULL, .name = "reconnect_timer"};
+        esp_timer_create(&timer_args, &reconnect_timer);
+        esp_timer_start_once(reconnect_timer, 5000000);  // 5 segundos
     }
 }
 
 void wifi_init() {
     nvs_flash_init();
     esp_netif_init();
-    esp_event_loop_create_default();
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -108,6 +145,8 @@ void app_main() {
     gpio_reset_pin(LED_PIN);
     gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(LED_PIN, 0);
+
+    esp_log_level_set("wifi", ESP_LOG_DEBUG);
 
     wifi_init();  // 🔹 Primero conectamos a Wi-Fi
 

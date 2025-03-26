@@ -3,11 +3,11 @@
 #include <WiFi.h>
 
 // Configuración de red WiFi
-const char* ssid = "TU_SSID";
-const char* password = "TU_CONTRASEÑA";
+const char* ssid = "DRAKO_IoT";
+const char* password = "88831473";
 
 // Configuración del broker MQTT
-const char* mqtt_server = "broker.hivemq.com";  // Puedes cambiarlo
+const char* mqtt_server = " ";  // Puedes cambiarlo
 const int mqtt_port = 1883;
 const char* mqtt_topic = "test/esp32";
 
