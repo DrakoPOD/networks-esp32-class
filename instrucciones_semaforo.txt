@@ -1,0 +1,35 @@
+# Importar librerías necesarias
+# from gpiozero import LED
+from time import sleep
+
+#! Deben copiar esto tal cuál está aquí escrito, NO CAMBIAR NADA
+# inicio del area de copiado
+class LED:
+    def __init__(self, pin, active_high):
+        self.led = pin
+    
+    def on(self):
+        print("Encendido pin:", self.led)
+    def off(self):
+        print("Apagado pin:", self.led)
+# fin del area de copiado
+
+led = LED(13, active_high=False)
+
+led.off() # Dará como resultado apago
+led.on() # Dará como resultado encendido.
+
+# Recordar sleep, es el número son los segundos a esperar
+sleep(1)
+
+# ? ¿Que deben hacer?
+# Encender el LED verde por 5 segundos
+# Luego apagarlo y encender el LED amarillo por 2 segundos
+# Luego apagarlo y encender el LED rojo por 7 segundos.
+# Luego apagarlo y volver a encender el LED verde por 5 segundos
+# El ciclo debe repetirse indefinidamente.
+
+#* Número de los pins de los LEDs
+# 13 verde
+# 19 amarillo
+# 23 rojo
