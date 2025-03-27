@@ -71,13 +71,13 @@ led_strip_handle_t configure_led(void) {
 }
 
 // Función para verificar si el mensaje es un número
-int is_number(const char *str, int len) {
-    if (str == NULL || len == 0) return 0;  // Si es nulo o vacío, no es número
+int is_number(const char *str) {
+    if (str == NULL || str[0] == '\0') return 0;  // Manejar nulo o vacío
 
     int i = 0;
     if (str[0] == '-') i++;  // Permitir signo negativo
 
-    for (; i < len; i++) {
+    for (; str[i] != '\0'; i++) {
         if (!isdigit((unsigned char)str[i])) return 0;
     }
     return 1;
@@ -110,6 +110,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
 
+    char buffer[event->data_len + 1];
+
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG_MQTT, "Conectado al broker MQTT");
@@ -125,9 +127,11 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             ESP_LOGI(TAG_MQTT, "Mensaje recibido en el topic: %.*s", event->topic_len, event->topic);
             print_user_property(event->property->user_property);
 
-            if (is_number(event->data, event->data_len)) {
-                uint8_t value = strtol(event->data, NULL, 10);
+            memcpy(buffer, event->data, event->data_len);
+            buffer[event->data_len] = '\0';
 
+            if (is_number(buffer)) {
+                int8_t value = atoi(buffer);
                 value = clamp(value, 0, 255);
 
                 if (strncmp(event->topic, TOPIC_R, event->topic_len) == 0) {
