@@ -122,13 +122,12 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             ESP_LOGI(TAG_MQTT, "Mensaje recibido en %.*s: %.*s", event->topic_len, event->topic, event->data_len, event->data);
 
             // Leer propiedades de usuario
-            ESP_LOGI(TAG_MQTT, "Mensaje recibido en el topic: %.*s", event->topic_len, event->topic);
             print_user_property(event->property->user_property);
 
             if (is_number(event->data, event->data_len)) {
-                uint8_t value = strtol(event->data, NULL, 10);
+                int8_t value = strtol(event->data, NULL, 10);
 
-                value = clamp(value, 0, 255);
+                value = clamp(value, 0, 127);
 
                 if (strncmp(event->topic, TOPIC_R, event->topic_len) == 0) {
                     r = value;
@@ -141,7 +140,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                 led_strip_set_pixel(led_strip, 0, r, g, b);
                 led_strip_refresh(led_strip);
 
-                ESP_LOGI(TAG_LED, "Led color have change");
+                ESP_LOGI(TAG_LED, "Led color have change to R:%d G:%d B:%d", r, g, b);
             } else {
                 ESP_LOGE(TAG_MQTT, "El mensaje no es un número");
             }
@@ -206,7 +205,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         esp_timer_start_once(reconnect_timer, 5000000);  // 5 segundos
     }
 }
-/// asdsad
 
 void wifi_init() {
     nvs_flash_init();
