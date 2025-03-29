@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#include "cJSON.h"
 #include "driver/gpio.h"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -17,9 +18,12 @@
 #define WIFI_SSID "IoT_EE"
 #define WIFI_PASS "12345678"
 
-#define TOPIC_R "esp32/led/R"
-#define TOPIC_G "esp32/led/G"
-#define TOPIC_B "esp32/led/B"
+#define DEVICE_ID "esp32_1"
+
+#define TOPIC_R DEVICE_ID "/led/R"
+#define TOPIC_G DEVICE_ID "/led/G"
+#define TOPIC_B DEVICE_ID "/led/B"
+#define TOPIC_ALL "device/led/all"
 
 #define LED_STRIP_USE_DMA 0
 
@@ -42,6 +46,9 @@
 static const char *TAG_MQTT = "MQTT";
 static const char *TAG_WIFI = "WIFI";
 static const char *TAG_LED = "LED";
+
+esp_mqtt_client_handle_t client;
+bool mqtt_connected = false;
 
 led_strip_handle_t led_strip;
 led_strip_handle_t configure_led(void) {
@@ -118,6 +125,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             esp_mqtt_client_subscribe(client, TOPIC_R, 1);
             esp_mqtt_client_subscribe(client, TOPIC_G, 1);
             esp_mqtt_client_subscribe(client, TOPIC_B, 1);
+            esp_mqtt_client_subscribe(client, TOPIC_ALL, 1);
+            ESP_LOGI(TAG_MQTT, "Suscrito a los temas: [%s, %s, %s, %s]", TOPIC_R, TOPIC_G, TOPIC_B, TOPIC_ALL);
+
+            mqtt_connected = true;
             break;
 
         case MQTT_EVENT_DATA:
@@ -131,7 +142,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
             if (is_number(buffer)) {
                 int8_t value = atoi(buffer);
-                value = clamp(value, 0, 255);
+                value = clamp(value, 0, 127);
 
                 if (strncmp(event->topic, TOPIC_R, event->topic_len) == 0) {
                     r = value;
@@ -146,7 +157,28 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
                 ESP_LOGI(TAG_LED, "Led color have change to R:%d G:%d B:%d", r, g, b);
             } else {
-                ESP_LOGE(TAG_MQTT, "El mensaje no es un número");
+                if (strncmp(event->topic, TOPIC_ALL, event->topic_len) == 0) {
+                    cJSON *json = cJSON_Parse(buffer);
+                    if (json) {
+                        cJSON *r_item = cJSON_GetObjectItem(json, "R");
+                        cJSON *g_item = cJSON_GetObjectItem(json, "G");
+                        cJSON *b_item = cJSON_GetObjectItem(json, "B");
+
+                        if (cJSON_IsNumber(r_item) && cJSON_IsNumber(g_item) && cJSON_IsNumber(b_item)) {
+                            r = clamp(cJSON_GetNumberValue(r_item), 0, 127);
+                            g = clamp(cJSON_GetNumberValue(g_item), 0, 127);
+                            b = clamp(cJSON_GetNumberValue(b_item), 0, 127);
+
+                            led_strip_set_pixel(led_strip, 0, r, g, b);
+                            led_strip_refresh(led_strip);
+
+                            ESP_LOGI(TAG_LED, "Led color have change to R:%d G:%d B:%d", r, g, b);
+                        }
+                        cJSON_Delete(json);
+                    } else {
+                        ESP_LOGE(TAG_MQTT, "Error al analizar JSON: %s", cJSON_GetErrorPtr());
+                    }
+                }
             }
             // Encender o apagar LED
             // if (strncmp(event->data, "ON", event->data_len) == 0) {
@@ -235,6 +267,19 @@ void wifi_init() {
     esp_wifi_start();
 }
 
+void temperature_task(void *arg) {
+    while (1) {
+        // Simulación de lectura de temperatura
+        if (mqtt_connected) {
+            char payload[50];
+            snprintf(payload, sizeof(payload), "{\"temperature\": %d}", rand() % 100);
+            esp_mqtt_client_publish(client, DEVICE_ID "/temperature", payload, 0, 0, 0);
+            // ESP_LOGI(TAG_MQTT, "Publicando temperatura: %s", payload);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 void app_main() {
     led_strip = configure_led();
     led_strip_set_pixel(led_strip, 0, 0, 0, 0);
@@ -251,7 +296,9 @@ void app_main() {
     // 🔹 Configuramos MQTT
     esp_mqtt_client_config_t mqtt_cfg = {.broker.address.uri = MQTT_BROKER_URI, .session.protocol_ver = MQTT_PROTOCOL_V_5};
 
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
+    client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
     esp_mqtt_client_start(client);
+
+    xTaskCreatePinnedToCore(temperature_task, "temperature_task", 2048, NULL, 5, NULL, 1);  // Core 1
 }
