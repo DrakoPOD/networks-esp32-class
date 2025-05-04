@@ -6,3 +6,5 @@
 certs
 data/certs
 managed_components
+.env
+platformio-local.ini
